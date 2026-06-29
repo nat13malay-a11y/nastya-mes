@@ -140,6 +140,64 @@ CORS_ORIGIN=https://app.example.com
 
 После изменения `VITE_API_BASE_URL` нужно пересобрать Mini App.
 
+## Railway Deploy
+
+Railway-сервис из корня репозитория по умолчанию деплоит `bot-api`.
+Для него используется [railway.json](railway.json):
+
+```txt
+Build: npm run build:bot
+Start: npm run start:bot
+Healthcheck: /health
+```
+
+Переменные для `bot-api`:
+
+```env
+BOT_TOKEN=...
+DUMP_CHANNEL_ID=-100...
+CORS_ORIGIN=https://your-mini-app.up.railway.app
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+`API_PORT` на Railway можно не задавать: приложение читает стандартный `PORT`.
+
+Для `user-client` создай отдельный Railway service из того же GitHub repo и в Settings укажи:
+
+```txt
+Custom Config File: /railway.user-client.json
+```
+
+Переменные для `user-client`:
+
+```env
+TELEGRAM_API_ID=...
+TELEGRAM_API_HASH=...
+TELEGRAM_SESSION=...
+DUMP_CHANNEL_ID=-100...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+Для `mini-app` создай третий Railway service и в Settings укажи:
+
+```txt
+Custom Config File: /railway.mini-app.json
+```
+
+Переменные для `mini-app`:
+
+```env
+VITE_API_BASE_URL=https://your-bot-api.up.railway.app
+```
+
+После создания public domain для Mini App вернись в `bot-api` и выставь:
+
+```env
+CORS_ORIGIN=https://your-mini-app.up.railway.app
+```
+
 ## 7. Preflight
 
 Перед деплоем:

@@ -10,6 +10,11 @@ if (envResult.error) {
   dotenv.config({ path: resolve(projectRoot, ".env.example") });
 }
 
+const rawEnv = {
+  ...process.env,
+  API_PORT: process.env.API_PORT ?? process.env.PORT
+};
+
 const envSchema = z.object({
   BOT_TOKEN: z.string().min(1, "BOT_TOKEN is required"),
   DUMP_CHANNEL_ID: z.coerce.number().int("DUMP_CHANNEL_ID must be an integer"),
@@ -19,4 +24,4 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required")
 });
 
-export const config = envSchema.parse(process.env);
+export const config = envSchema.parse(rawEnv);
