@@ -13,6 +13,11 @@ create table if not exists public."VIP_Users" (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public."Pinned_Chats" (
+  telegram_id bigint primary key,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public."Users" (
   telegram_id bigint primary key,
   username text,
@@ -39,6 +44,7 @@ create table if not exists public."Messages" (
 
 alter table public."Settings" enable row level security;
 alter table public."VIP_Users" enable row level security;
+alter table public."Pinned_Chats" enable row level security;
 alter table public."Users" enable row level security;
 alter table public."Messages" enable row level security;
 
@@ -73,9 +79,20 @@ select distinct on (m.user_id)
   m.timestamp as last_message_at,
   exists (
     select 1
+    from public."Messages" media_messages
+    where media_messages.user_id = m.user_id
+      and media_messages.media_type is not null
+  ) as has_media,
+  exists (
+    select 1
     from public."VIP_Users" v
     where v.telegram_id = m.user_id
-  ) as is_vip
+  ) as is_vip,
+  exists (
+    select 1
+    from public."Pinned_Chats" p
+    where p.telegram_id = m.user_id
+  ) as is_pinned
 from public."Messages" m
 left join public."Users" u on u.telegram_id = m.user_id
 order by m.user_id, m.timestamp desc, m.id desc;

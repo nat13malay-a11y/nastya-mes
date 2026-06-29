@@ -8,7 +8,9 @@ export type ChatSummary = {
   avatar_url: string | null;
   last_message_preview: string;
   last_message_at: string;
+  has_media?: boolean;
   is_vip: boolean;
+  is_pinned?: boolean;
 };
 
 export type ChatMessage = {
@@ -23,7 +25,7 @@ export type ChatMessage = {
 };
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 };
 
@@ -74,6 +76,30 @@ export async function favoriteChat(
 ): Promise<{ telegramId: number; isFavorite: boolean }> {
   return apiRequest(`/api/chats/${userId}/favorite`, {
     method: "POST"
+  });
+}
+
+export async function unfavoriteChat(
+  userId: number
+): Promise<{ telegramId: number; isFavorite: boolean }> {
+  return apiRequest(`/api/chats/${userId}/favorite`, {
+    method: "DELETE"
+  });
+}
+
+export async function pinChat(
+  userId: number
+): Promise<{ telegramId: number; isPinned: boolean }> {
+  return apiRequest(`/api/chats/${userId}/pin`, {
+    method: "POST"
+  });
+}
+
+export async function unpinChat(
+  userId: number
+): Promise<{ telegramId: number; isPinned: boolean }> {
+  return apiRequest(`/api/chats/${userId}/pin`, {
+    method: "DELETE"
   });
 }
 

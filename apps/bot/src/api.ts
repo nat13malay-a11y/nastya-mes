@@ -50,6 +50,21 @@ export function startApiServer(): void {
           )
         : data;
 
+      chats.sort((left, right) => {
+        if (left.is_pinned && !right.is_pinned) {
+          return -1;
+        }
+
+        if (!left.is_pinned && right.is_pinned) {
+          return 1;
+        }
+
+        return (
+          new Date(right.last_message_at).getTime() -
+          new Date(left.last_message_at).getTime()
+        );
+      });
+
       res.json({ chats });
     } catch (error) {
       next(error);
@@ -100,6 +115,77 @@ export function startApiServer(): void {
       }
 
       res.json({ telegramId: userId, isFavorite: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/chats/:userId/favorite", async (req, res, next) => {
+    try {
+      const userId = Number(req.params.userId);
+
+      if (!Number.isSafeInteger(userId)) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+      }
+
+      const { error } = await supabaseAdmin
+        .from("VIP_Users")
+        .delete()
+        .eq("telegram_id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      res.json({ telegramId: userId, isFavorite: false });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/chats/:userId/pin", async (req, res, next) => {
+    try {
+      const userId = Number(req.params.userId);
+
+      if (!Number.isSafeInteger(userId)) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+      }
+
+      const { error } = await supabaseAdmin
+        .from("Pinned_Chats")
+        .upsert({ telegram_id: userId }, { onConflict: "telegram_id" });
+
+      if (error) {
+        throw error;
+      }
+
+      res.json({ telegramId: userId, isPinned: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/chats/:userId/pin", async (req, res, next) => {
+    try {
+      const userId = Number(req.params.userId);
+
+      if (!Number.isSafeInteger(userId)) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+      }
+
+      const { error } = await supabaseAdmin
+        .from("Pinned_Chats")
+        .delete()
+        .eq("telegram_id", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      res.json({ telegramId: userId, isPinned: false });
     } catch (error) {
       next(error);
     }

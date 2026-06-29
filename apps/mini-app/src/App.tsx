@@ -1,12 +1,16 @@
 import {
   ArrowLeft,
+  FileText,
   Crown,
   Image,
   MoreHorizontal,
+  Mic,
   Pin,
+  Play,
   Search,
   Settings,
   Star,
+  Video,
   X
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +20,9 @@ import {
   getChats,
   getMessages,
   getSettings,
+  pinChat,
+  unfavoriteChat,
+  unpinChat,
   updateMessageLimit,
   type ChatMessage,
   type ChatSummary
@@ -24,11 +31,13 @@ import { telegramApp } from "./lib/telegram.js";
 import { normalizeVipInput } from "./lib/vip.js";
 
 type View = "contacts" | "chat";
+type ChatTab = "all" | "favorites" | "media";
 
 const MESSAGE_LIMITS = [10, 15, 20, 25, 30];
 
 export function App() {
   const [view, setView] = useState<View>("contacts");
+  const [activeTab, setActiveTab] = useState<ChatTab>("all");
   const [search, setSearch] = useState("");
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<ChatSummary | null>(null);
@@ -138,29 +147,86 @@ export function App() {
     }
   };
 
-  const saveActiveChatForever = async () => {
+  const toggleActiveFavorite = async () => {
     if (!activeChat) {
       return;
     }
 
     try {
-      await favoriteChat(activeChat.user_id);
-      const nextActiveChat = { ...activeChat, is_vip: true };
+      const nextIsVip = !activeChat.is_vip;
+
+      if (nextIsVip) {
+        await favoriteChat(activeChat.user_id);
+      } else {
+        await unfavoriteChat(activeChat.user_id);
+      }
+
+      const nextActiveChat = { ...activeChat, is_vip: nextIsVip };
 
       setActiveChat(nextActiveChat);
       setChats((currentChats) =>
         currentChats.map((chat) =>
-          chat.user_id === activeChat.user_id ? { ...chat, is_vip: true } : chat
+          chat.user_id === activeChat.user_id ? { ...chat, is_vip: nextIsVip } : chat
         )
       );
-      setNotice("Чат добавлен в избранные и будет храниться полностью");
+      setNotice(
+        nextIsVip
+          ? "Чат добавлен в избранные и будет храниться полностью"
+          : "Чат убран из избранных"
+      );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Не удалось добавить в избранные");
+      setNotice(error instanceof Error ? error.message : "Не удалось изменить избранное");
+    }
+  };
+
+  const toggleActivePin = async () => {
+    if (!activeChat) {
+      return;
+    }
+
+    try {
+      const nextIsPinned = !activeChat.is_pinned;
+
+      if (nextIsPinned) {
+        await pinChat(activeChat.user_id);
+      } else {
+        await unpinChat(activeChat.user_id);
+      }
+
+      const nextActiveChat = { ...activeChat, is_pinned: nextIsPinned };
+
+      setActiveChat(nextActiveChat);
+      setChats((currentChats) =>
+        sortChats(
+          currentChats.map((chat) =>
+            chat.user_id === activeChat.user_id
+              ? { ...chat, is_pinned: nextIsPinned }
+              : chat
+          )
+        )
+      );
+      setNotice(nextIsPinned ? "Чат закреплен" : "Чат откреплен");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Не удалось изменить закрепление");
     }
   };
 
   const activeTitle = activeChat?.display_name ?? "Чат";
-  const filteredChats = useMemo(() => chats, [chats]);
+  const filteredChats = useMemo(() => {
+    const filtered = chats.filter((chat) => {
+      if (activeTab === "favorites") {
+        return chat.is_vip;
+      }
+
+      if (activeTab === "media") {
+        return Boolean(chat.has_media);
+      }
+
+      return true;
+    });
+
+    return sortChats(filtered);
+  }, [activeTab, chats]);
 
   return (
     <main className="app-shell">
@@ -187,13 +253,27 @@ export function App() {
           </header>
 
           <div className="chat-tabs" aria-label="Фильтры">
-            <button className="is-active" type="button">
+            <button
+              className={activeTab === "all" ? "is-active" : ""}
+              type="button"
+              onClick={() => setActiveTab("all")}
+            >
               Все
             </button>
-            <button type="button">
+            <button
+              className={activeTab === "favorites" ? "is-active" : ""}
+              type="button"
+              onClick={() => setActiveTab("favorites")}
+            >
               VIP <span>{chats.filter((chat) => chat.is_vip).length}</span>
             </button>
-            <button type="button">Медиа</button>
+            <button
+              className={activeTab === "media" ? "is-active" : ""}
+              type="button"
+              onClick={() => setActiveTab("media")}
+            >
+              Медиа
+            </button>
           </div>
 
           <div className="chat-list">
@@ -219,7 +299,11 @@ export function App() {
                   </span>
                   <span className="chat-meta">
                     <time>{formatListTime(chat.last_message_at)}</time>
-                    <Pin size={20} aria-hidden="true" />
+                    <Pin
+                      className={chat.is_pinned ? "is-pinned" : ""}
+                      size={20}
+                      aria-label={chat.is_pinned ? "Закреплен" : "Не закреплен"}
+                    />
                   </span>
                 </button>
               ))
@@ -254,15 +338,24 @@ export function App() {
           </div>
 
           {activeChat ? (
-            <button
-              className={`favorite-chat-button ${activeChat.is_vip ? "is-active" : ""}`}
-              type="button"
-              onClick={() => void saveActiveChatForever()}
-              disabled={activeChat.is_vip}
-            >
-              <Star size={19} fill={activeChat.is_vip ? "currentColor" : "none"} />
-              <span>{activeChat.is_vip ? "В избранных" : "Избранные"}</span>
-            </button>
+            <div className="chat-actions">
+              <button
+                className={`chat-action-button ${activeChat.is_vip ? "is-active" : ""}`}
+                type="button"
+                onClick={() => void toggleActiveFavorite()}
+              >
+                <Star size={19} fill={activeChat.is_vip ? "currentColor" : "none"} />
+                <span>{activeChat.is_vip ? "В избранных" : "Избранные"}</span>
+              </button>
+              <button
+                className={`chat-action-button ${activeChat.is_pinned ? "is-active" : ""}`}
+                type="button"
+                onClick={() => void toggleActivePin()}
+              >
+                <Pin size={19} fill={activeChat.is_pinned ? "currentColor" : "none"} />
+                <span>{activeChat.is_pinned ? "Закреплен" : "Закрепить"}</span>
+              </button>
+            </div>
           ) : null}
 
           <div className="messages-list">
@@ -350,15 +443,26 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <article className={`message-bubble ${isBot ? "is-outgoing" : "is-incoming"}`}>
-      {message.media_type ? (
-        <span className="media-chip">
-          <Image size={15} />
-          {mediaLabel(message.media_type)}
-        </span>
-      ) : null}
+      {message.media_type ? <MediaPreview mediaType={message.media_type} /> : null}
       {message.text ? <p>{message.text}</p> : null}
       <time>{formatMessageTime(message.timestamp)}</time>
     </article>
+  );
+}
+
+function MediaPreview({ mediaType }: { mediaType: string }) {
+  const Icon = mediaIcon(mediaType);
+
+  return (
+    <div className={`media-preview media-${mediaType}`}>
+      <span className="media-preview-icon">
+        <Icon size={22} />
+      </span>
+      <span>
+        <strong>{mediaLabel(mediaType)}</strong>
+        <small>{mediaHint(mediaType)}</small>
+      </span>
+    </div>
   );
 }
 
@@ -372,11 +476,72 @@ function getAvatarHue(id: number): string {
 }
 
 function mediaLabel(mediaType: string): string {
+  const labels: Record<string, string> = {
+    photo: "Фото",
+    video: "Видео",
+    video_note: "Видеосообщение",
+    voice: "Голосовое",
+    audio: "Аудио",
+    animation: "GIF",
+    sticker: "Стикер",
+    document: "Файл",
+    protected_or_failed: "Защищенное медиа"
+  };
+
+  if (labels[mediaType]) {
+    return labels[mediaType];
+  }
+
   if (mediaType === "protected_or_failed") {
     return "protected";
   }
 
   return mediaType.replace("_", " ");
+}
+
+function mediaHint(mediaType: string): string {
+  if (mediaType === "protected_or_failed") {
+    return "Telegram не дал скопировать файл";
+  }
+
+  return "Файл сохранен в dump channel";
+}
+
+function mediaIcon(mediaType: string) {
+  if (mediaType === "photo" || mediaType === "sticker" || mediaType === "animation") {
+    return Image;
+  }
+
+  if (mediaType === "video" || mediaType === "video_note") {
+    return Video;
+  }
+
+  if (mediaType === "voice" || mediaType === "audio") {
+    return Mic;
+  }
+
+  if (mediaType === "protected_or_failed") {
+    return Play;
+  }
+
+  return FileText;
+}
+
+function sortChats(chats: ChatSummary[]): ChatSummary[] {
+  return [...chats].sort((left, right) => {
+    if (left.is_pinned && !right.is_pinned) {
+      return -1;
+    }
+
+    if (!left.is_pinned && right.is_pinned) {
+      return 1;
+    }
+
+    return (
+      new Date(right.last_message_at).getTime() -
+      new Date(left.last_message_at).getTime()
+    );
+  });
 }
 
 function formatListTime(timestamp: string): string {
