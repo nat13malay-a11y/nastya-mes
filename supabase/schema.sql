@@ -118,6 +118,8 @@ create index if not exists users_username_idx
 create index if not exists users_phone_idx
   on public."Users" (phone);
 
+drop view if exists public."Chat_List";
+
 create or replace view public."Chat_List" as
 select distinct on (m.user_id)
   m.user_id,
