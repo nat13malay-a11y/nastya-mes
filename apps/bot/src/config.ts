@@ -12,7 +12,7 @@ if (envResult.error) {
 
 const rawEnv = {
   ...process.env,
-  API_PORT: process.env.API_PORT ?? process.env.PORT
+  API_PORT: process.env.PORT ?? process.env.API_PORT
 };
 
 const envSchema = z.object({

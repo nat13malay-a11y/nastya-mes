@@ -161,7 +161,7 @@ SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
-`API_PORT` на Railway можно не задавать: приложение читает стандартный `PORT`.
+`API_PORT` на Railway не задавай: приложение слушает стандартный Railway `PORT`.
 
 Для `user-client` создай отдельный Railway service из того же GitHub repo и в Settings укажи:
 

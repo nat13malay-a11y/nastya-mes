@@ -153,8 +153,8 @@ export function startApiServer(): void {
     res.status(500).json({ error: "Internal server error" });
   });
 
-  app.listen(config.API_PORT, () => {
-    console.log(`API server listening on http://localhost:${config.API_PORT}`);
+  app.listen(config.API_PORT, "0.0.0.0", () => {
+    console.log(`API server listening on 0.0.0.0:${config.API_PORT}`);
   });
 }
 
