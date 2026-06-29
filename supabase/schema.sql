@@ -45,6 +45,50 @@ create table if not exists public."Messages" (
   timestamp timestamptz not null default now()
 );
 
+alter table public."Settings"
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public."Users"
+  add column if not exists username text,
+  add column if not exists phone text,
+  add column if not exists first_name text,
+  add column if not exists last_name text,
+  add column if not exists display_name text,
+  add column if not exists avatar_url text,
+  add column if not exists last_seen_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+update public."Users"
+set display_name = coalesce(nullif(display_name, ''), username, first_name, 'User ' || telegram_id::text)
+where display_name is null or display_name = '';
+
+alter table public."Users"
+  alter column display_name set not null;
+
+alter table public."Messages"
+  add column if not exists sender text not null default 'user',
+  add column if not exists media_file_id text,
+  add column if not exists media_type text,
+  add column if not exists media_storage_path text,
+  add column if not exists media_mime_type text,
+  add column if not exists media_size integer,
+  add column if not exists timestamp timestamptz not null default now();
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'messages_sender_check'
+      and conrelid = 'public."Messages"'::regclass
+  ) then
+    alter table public."Messages"
+      add constraint messages_sender_check check (sender in ('user', 'bot'));
+  end if;
+end;
+$$;
+
 alter table public."Settings" enable row level security;
 alter table public."VIP_Users" enable row level security;
 alter table public."Pinned_Chats" enable row level security;
