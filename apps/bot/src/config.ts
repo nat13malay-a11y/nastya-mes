@@ -1,0 +1,22 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+import { z } from "zod";
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const envResult = dotenv.config({ path: resolve(projectRoot, ".env") });
+
+if (envResult.error) {
+  dotenv.config({ path: resolve(projectRoot, ".env.example") });
+}
+
+const envSchema = z.object({
+  BOT_TOKEN: z.string().min(1, "BOT_TOKEN is required"),
+  DUMP_CHANNEL_ID: z.coerce.number().int("DUMP_CHANNEL_ID must be an integer"),
+  API_PORT: z.coerce.number().int().positive().default(3001),
+  CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  SUPABASE_URL: z.string().url("SUPABASE_URL must be a valid URL"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required")
+});
+
+export const config = envSchema.parse(process.env);
