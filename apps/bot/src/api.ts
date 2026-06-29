@@ -10,11 +10,20 @@ export function startApiServer(): void {
 
   app.use(cors({ origin: config.CORS_ORIGIN }));
   app.use(express.json());
-  app.use(requireTelegramAuth);
+
+  app.get("/", (_req, res) => {
+    res.json({
+      ok: true,
+      service: "nastya-mes API",
+      health: "/health"
+    });
+  });
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
   });
+
+  app.use("/api", requireTelegramAuth);
 
   app.get("/api/chats", async (req, res, next) => {
     try {
@@ -159,11 +168,6 @@ export function startApiServer(): void {
 }
 
 function requireTelegramAuth(req: Request, res: Response, next: NextFunction): void {
-  if (req.path === "/health") {
-    next();
-    return;
-  }
-
   const initData = req.header("x-telegram-init-data");
 
   if (!initData && process.env.NODE_ENV !== "production") {
