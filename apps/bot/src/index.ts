@@ -17,10 +17,52 @@ bot.catch((error) => {
   console.error("Bot error:", error);
 });
 
-bot.start({
-  onStart: (botInfo) => {
-    console.log(`Bot @${botInfo.username} started`);
-  }
-});
-
 startApiServer();
+
+void startTelegramBot();
+
+async function startTelegramBot(): Promise<void> {
+  try {
+    await bot.start({
+      onStart: (botInfo) => {
+        console.log(`Bot @${botInfo.username} started`);
+      }
+    });
+  } catch (error) {
+    if (isGetUpdatesConflict(error)) {
+      console.warn(
+        "Telegram bot polling conflict: another instance is using this BOT_TOKEN. Retrying in 30 seconds."
+      );
+      setTimeout(() => {
+        void startTelegramBot();
+      }, 30_000);
+      return;
+    }
+
+    throw error;
+  }
+}
+
+function isGetUpdatesConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeError = error as {
+    method?: string;
+    error_code?: number;
+    description?: string;
+  };
+
+  return (
+    maybeError.method === "getUpdates" &&
+    maybeError.error_code === 409 &&
+    Boolean(maybeError.description?.includes("Conflict"))
+  );
+}
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    bot.stop();
+  });
+}
