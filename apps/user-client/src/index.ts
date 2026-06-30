@@ -13,7 +13,21 @@ const client = new TelegramClient(
   { connectionRetries: 5 }
 );
 
-await client.connect();
+try {
+  await client.connect();
+} catch (error) {
+  if (isAuthKeyDuplicated(error)) {
+    console.error(
+      [
+        "Telegram rejected TELEGRAM_SESSION with AUTH_KEY_DUPLICATED.",
+        "Stop every other user-client process that uses this session, generate a new StringSession with npm run auth, update TELEGRAM_SESSION in Railway, then redeploy only one user-client instance."
+      ].join(" ")
+    );
+    process.exit(0);
+  }
+
+  throw error;
+}
 
 client.addEventHandler(
   (event) => {
@@ -35,3 +49,14 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 await new Promise(() => undefined);
+
+function isAuthKeyDuplicated(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const errorLike = error as { errorMessage?: unknown; message?: unknown; code?: unknown };
+  const message = String(errorLike.errorMessage ?? errorLike.message ?? "");
+
+  return errorLike.code === 406 && message.includes("AUTH_KEY_DUPLICATED");
+}
